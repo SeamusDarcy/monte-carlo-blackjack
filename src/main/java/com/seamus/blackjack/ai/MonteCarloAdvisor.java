@@ -2,6 +2,8 @@ package com.seamus.blackjack.ai;
 
 import com.seamus.blackjack.model.Card;
 import com.seamus.blackjack.model.Hand;
+import com.seamus.blackjack.model.Move;
+
 import java.util.Random;
 
 public class MonteCarloAdvisor {
@@ -79,29 +81,103 @@ public class MonteCarloAdvisor {
 
      }
 
-     public double doubleEV(int playerTotal, int playerAces, int upValue){
+    public double doubleEV(int playerTotal, int playerAces, int upValue){
         double score = 0;
-        int aceCount = 0;
-        int total = playerTotal;
-        int aces = playerAces;
-         for (int i = 2; i <= 11; i++){
-             double p = (double) deckCount[i] / cardCount; // what percent of every rank is the deck e.g 3/49 3's
-             if(i == 11){
-                 aceCount++;
-             }
-             playerTotal += i;
-             while(playerTotal > 21 && aceCount > 0){
-                 playerTotal -= 10;
-                 aceCount--;
-             }
-//             if (total > 21){
-//                 score += p * (-1);
-//             } else {               NOT FULLY SURE
-//                 score += p * standEV(total, upValue);
-//             }
-//         }
-         return 2 * score;
-     }
+
+        for (int v = 2; v <= 11; v++){
+            double p = (double) deckCount[v] / cardCount;   // chance of this card
+
+            int total = playerTotal;
+            int aces  = playerAces;
+            if (v == 11) aces++;
+            total += v;
+            while (total > 21 && aces > 0){
+                total -= 10;
+                aces--;
+            }
+
+            if (total > 21){
+                score += p * (-1);                      // busted -> lose
+            } else {
+                score += p * standEV(total, upValue);   // survived -> value of standing here
+            }
+        }
+
+        return 2 * score;   // doubled stake
+    }
+
+    public double hitEV(int playerTotal, int playerAces, int upValue){
+        double score = 0;
+
+        for (int v = 2; v <= 11; v++){
+            double p = (double) deckCount[v] / cardCount;
+
+            int total = playerTotal;
+            int aces  = playerAces;
+            if (v == 11) aces++;
+            total += v;
+            while (total > 21 && aces > 0){
+                total -= 10;
+                aces--;
+            }
+
+            if (total > 21){
+                score += p * (-1);
+            } else if (total == 21){
+                score += p * standEV(total, upValue);
+            } else {
+                double standHere = standEV(total, upValue);
+                double hitAgain  = hitEV(total, aces, upValue);
+                score += p * Math.max(standHere, hitAgain); // factors the abilty to hit again and selects if its better EV
+            }
+        }
+
+        return score;
+    }
+
+    public Move advise(int playerTotal, int playerAces, int upValue, boolean canDouble){
+        double stand = standEV(playerTotal, upValue);
+        double hit   = hitEV(playerTotal, playerAces, upValue);
+
+        System.out.println("stand EV:  " + stand);
+        System.out.println("hit EV:    " + hit);
+
+        if (canDouble){
+            double dbl = doubleEV(playerTotal, playerAces, upValue);
+            System.out.println("double EV: " + dbl);
+
+            if (dbl >= stand && dbl >= hit){
+                return Move.DOUBLE;
+            } else if (hit >= stand){
+                return Move.HIT;
+            } else {
+                return Move.STAND;
+            }
+        } else {
+            if (hit >= stand){
+                return Move.HIT;
+            } else {
+                return Move.STAND;
+            }
+        }
+    }
+
+    public int[] handState(Hand hand){
+        int total = 0;
+        int aces = 0;
+        for (int i = 0; i < hand.size(); i++){
+            int v = hand.getCard(i).getRank().getValue();
+            total += v;
+            if (v == 11) aces++;
+            while (total > 21 && aces > 0){
+                total -= 10;
+                aces--;
+            }
+        }
+        return new int[]{total, aces};
+    }
+
+
 
 
     public int getDeckCount(int value){

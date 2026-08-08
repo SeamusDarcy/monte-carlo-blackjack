@@ -5,6 +5,8 @@ import com.seamus.blackjack.model.Deck;
 import com.seamus.blackjack.model.Hand;
 import com.seamus.blackjack.model.Move;
 import com.seamus.blackjack.ui.ConsoleUI;
+import com.seamus.blackjack.ai.MonteCarloAdvisor;
+import com.seamus.blackjack.model.Move;
 
 import java.util.Scanner;
 
@@ -32,12 +34,22 @@ public class Game {
     }
 
     public void playerTurn(){
+        MonteCarloAdvisor advisor = new MonteCarloAdvisor();
+
         ui.showPlayerHand(playerHand);
         ui.showDealerCard(dealerHand);
 
         while (true){
+            advisor.buildPool(playerHand, dealerHand.getCard(0));
+
+            int[] state = advisor.handState(playerHand);
+            int total = state[0];
+            int aces  = state[1];
+            int up    = dealerHand.getCard(0).getRank().getValue();
             boolean canDouble = playerHand.size() == 2;
-            Move move = ui.askMove(canDouble);
+
+            Move move = advisor.advise(total, aces, up, canDouble);
+            System.out.println("Advisor chose: " + move);
 
             if (move == Move.STAND){
                 break;
@@ -47,7 +59,6 @@ public class Game {
                 stake = 2;
             }
 
-            // both hit & double draw 1 card
             playerHand.addCard(deck.deal());
             ui.showPlayerHand(playerHand);
 
@@ -57,7 +68,7 @@ public class Game {
             }
 
             if (move == Move.DOUBLE){
-                break;   // have to stand after double
+                break;
             }
         }
     }
