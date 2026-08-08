@@ -6,7 +6,7 @@ import com.seamus.blackjack.game.Game;
 import com.seamus.blackjack.model.*;
 
 public class Main {
-    static void main() {
+    public static void main(String[] args) {
         Game game = new Game();
         game.play();
     }
