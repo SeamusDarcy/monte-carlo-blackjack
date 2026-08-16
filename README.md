@@ -78,6 +78,3 @@ The tests are:
 - **ai** - the Monte Carlo advisor that works out the EVs and picks the move
 - **ui** - all the console output
 
-## Not included
-
-Splitting is not implemented yet. The advisor plays every other part of the game on its own and picks the mathematically best move, but a pair can't be split at the moment that is the main thing left to add.
