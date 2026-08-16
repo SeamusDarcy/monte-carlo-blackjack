@@ -21,6 +21,7 @@ public class MonteCarloAdvisorTest {
         return hand;
     }
 
+    // Full deck minus players 2 cards and dealer one face up == 49
     @Test
     void buildPoolLeavesFortyNineCards() {
         MonteCarloAdvisor advisor = new MonteCarloAdvisor();
@@ -28,6 +29,7 @@ public class MonteCarloAdvisorTest {
         assertEquals(49, advisor.getCardCount());
     }
 
+    // checks the right card is decremented tens 16 -> 15, seven + four -> 4, 3
     @Test
     void buildPoolRemovesTheVisibleCards() {
         MonteCarloAdvisor advisor = new MonteCarloAdvisor();
@@ -37,6 +39,7 @@ public class MonteCarloAdvisorTest {
         assertEquals(3, advisor.getDeckCount(4));
     }
 
+    // checks hand.getTotal is the same as for handstate
     @Test
     void handStateTotalMatchesHandTotal() {
         MonteCarloAdvisor advisor = new MonteCarloAdvisor();
@@ -44,6 +47,7 @@ public class MonteCarloAdvisorTest {
         assertEquals(hand.getTotal(), advisor.handState(hand)[0]);
     }
 
+    // every draw is between 2 and 11 over 5_000 draws
     @Test
     void drawCardAlwaysInRange() {
         MonteCarloAdvisor advisor = new MonteCarloAdvisor();
@@ -54,6 +58,7 @@ public class MonteCarloAdvisorTest {
         }
     }
 
+    // rigs the draw pool to have only tens and then checks every draw returns a 10
     @Test
     void tensOnlyPoolAlwaysDrawsTen() throws Exception {
         MonteCarloAdvisor advisor = new MonteCarloAdvisor();

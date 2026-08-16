@@ -4,12 +4,24 @@ import com.seamus.blackjack.model.Card;
 import com.seamus.blackjack.model.Hand;
 import com.seamus.blackjack.model.Move;
 
-import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MonteCarloAdvisor {
     private int[] deckCount;
     private int cardCount;
-    private Random random = new Random();
+
+    private static final int THREADS = Runtime.getRuntime().availableProcessors();
+    private final ExecutorService pool = Executors.newFixedThreadPool(THREADS, runnable -> {
+        Thread thread = new Thread(runnable);
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public MonteCarloAdvisor(){
         deckCount = new int[12];
@@ -35,7 +47,7 @@ public class MonteCarloAdvisor {
     }
 
     public int drawCard(){
-        int roll = random.nextInt(cardCount);   // each value has a block, 4 for most value 10 is 16 due to face cards
+        int roll = ThreadLocalRandom.current().nextInt(cardCount);   // each value has a block, 4 for most value 10 is 16 due to face cards
         int value = 2;
         while (roll >= deckCount[value]){   // if the roll is more than the block length it goes thorough block then remove block length from roll value
             roll -= deckCount[value];
@@ -65,20 +77,35 @@ public class MonteCarloAdvisor {
     }
 
      public double standEV(int playerTotal, int upValue){
-        double score = 0;
         int trials = 200_000;
-         for (int i = 0; i < trials; i++){
-             int dealer = simulateDealerOnce(upValue);
-             if (dealer > 21){
-                 score += 1;                  // dealer busted
-             } else if (dealer < playerTotal){
-                 score += 1;                  // your total is higher
-             } else if (dealer > playerTotal){
-                 score -= 1;                  // dealer's total is higher
-             }
-         }
-         return score / trials;
-
+        int chunk = trials / THREADS;
+        List<Future<Long>> futures = new ArrayList<>();
+        for (int t = 0; t < THREADS; t++){
+            final int count = (t == THREADS - 1) ? (trials - chunk * (THREADS - 1)) : chunk;
+            futures.add(pool.submit(() -> {
+                long partial = 0;
+                for (int i = 0; i < count; i++){
+                    int dealer = simulateDealerOnce(upValue);
+                    if (dealer > 21){
+                        partial += 1;
+                    } else if (dealer < playerTotal){
+                        partial += 1;
+                    } else if (dealer > playerTotal){
+                        partial -= 1;
+                    }
+                }
+                return partial;
+            }));
+        }
+        long score = 0;
+        try {
+            for (Future<Long> future : futures){
+                score += future.get();
+            }
+        } catch (InterruptedException | ExecutionException e){
+            throw new RuntimeException(e);
+        }
+        return (double) score / trials;
      }
 
     public double doubleEV(int playerTotal, int playerAces, int upValue){
