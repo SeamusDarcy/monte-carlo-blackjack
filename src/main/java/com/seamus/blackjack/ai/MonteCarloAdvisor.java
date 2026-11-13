@@ -5,7 +5,9 @@ import com.seamus.blackjack.model.Hand;
 import com.seamus.blackjack.model.Move;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,11 +25,18 @@ public class MonteCarloAdvisor {
         return thread;
     });
 
+    // caches so each (total, aces, upcard) state is only worked out once per pool
+    // cleared every time the pool changes because the results depend on what is left in the deck
+    private final Map<Integer, Double> standCache = new HashMap<>();
+    private final Map<Integer, Double> hitCache = new HashMap<>();
+
     public MonteCarloAdvisor(){
         deckCount = new int[12];
     }
 
     public void buildPool(Hand hand, Card card){
+        standCache.clear();
+        hitCache.clear();
         for (int i = 2; i < 12; i++){
             if (i == 10){
                 deckCount[i] = 16;
@@ -77,6 +86,19 @@ public class MonteCarloAdvisor {
     }
 
      public double standEV(int playerTotal, int upValue){
+        // dealer always finishes on 17+, so standing on any total 16 or under has the same EV (only win if dealer busts)
+        int effectiveTotal = Math.min(playerTotal, 16);
+        int key = upValue * 100 + effectiveTotal;
+        Double cached = standCache.get(key);
+        if (cached != null){
+            return cached;
+        }
+        double ev = simulateStandEV(effectiveTotal, upValue);
+        standCache.put(key, ev);
+        return ev;
+     }
+
+     private double simulateStandEV(int playerTotal, int upValue){
         int trials = 200_000;
         int chunk = trials / THREADS;
         List<Future<Long>> futures = new ArrayList<>();
@@ -134,6 +156,17 @@ public class MonteCarloAdvisor {
     }
 
     public double hitEV(int playerTotal, int playerAces, int upValue){
+        int key = (upValue * 100 + playerTotal) * 10 + playerAces;
+        Double cached = hitCache.get(key);
+        if (cached != null){
+            return cached;
+        }
+        double ev = computeHitEV(playerTotal, playerAces, upValue);
+        hitCache.put(key, ev);
+        return ev;
+    }
+
+    private double computeHitEV(int playerTotal, int playerAces, int upValue){
         double score = 0;
 
         for (int v = 2; v <= 11; v++){
