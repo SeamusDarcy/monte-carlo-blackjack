@@ -25,9 +25,11 @@ public class MonteCarloAdvisor {
         return thread;
     });
 
-    // caches so each (total, aces, upcard) state is only worked out once per pool
+    private static final int BUST = 5;
+
+    // caches so each upcard / (total, aces, upcard) state is only worked out once per pool
     // cleared every time the pool changes because the results depend on what is left in the deck
-    private final Map<Integer, Double> standCache = new HashMap<>();
+    private final Map<Integer, double[]> dealerCache = new HashMap<>();
     private final Map<Integer, Double> hitCache = new HashMap<>();
 
     public MonteCarloAdvisor(){
@@ -35,7 +37,7 @@ public class MonteCarloAdvisor {
     }
 
     public void buildPool(Hand hand, Card card){
-        standCache.clear();
+        dealerCache.clear();
         hitCache.clear();
         for (int i = 2; i < 12; i++){
             if (i == 10){
@@ -86,48 +88,59 @@ public class MonteCarloAdvisor {
     }
 
      public double standEV(int playerTotal, int upValue){
-        // dealer always finishes on 17+, so standing on any total 16 or under has the same EV (only win if dealer busts)
-        int effectiveTotal = Math.min(playerTotal, 16);
-        int key = upValue * 100 + effectiveTotal;
-        Double cached = standCache.get(key);
-        if (cached != null){
-            return cached;
+        // every stand EV for a given upcard is scored against the same simulated dealer results,
+        // so comparing totals (and hit vs stand) isn't swayed by each call getting its own random noise
+        double[] dist = dealerDistribution(upValue);
+        double ev = dist[BUST];
+        for (int d = 17; d <= 21; d++){
+            double p = dist[d - 17];
+            if (playerTotal > d){
+                ev += p;
+            } else if (playerTotal < d){
+                ev -= p;
+            }
         }
-        double ev = simulateStandEV(effectiveTotal, upValue);
-        standCache.put(key, ev);
         return ev;
      }
 
-     private double simulateStandEV(int playerTotal, int upValue){
-        int trials = 200_000;
+     // probability the dealer finishes on 17, 18, 19, 20, 21 (index 0-4) or busts (index 5)
+     // simulated once per upcard per pool and then reused
+     private double[] dealerDistribution(int upValue){
+        double[] cached = dealerCache.get(upValue);
+        if (cached != null){
+            return cached;
+        }
+        int trials = 1_000_000;
         int chunk = trials / THREADS;
-        List<Future<Long>> futures = new ArrayList<>();
+        List<Future<long[]>> futures = new ArrayList<>();
         for (int t = 0; t < THREADS; t++){
             final int count = (t == THREADS - 1) ? (trials - chunk * (THREADS - 1)) : chunk;
             futures.add(pool.submit(() -> {
-                long partial = 0;
+                long[] partial = new long[6];
                 for (int i = 0; i < count; i++){
                     int dealer = simulateDealerOnce(upValue);
-                    if (dealer > 21){
-                        partial += 1;
-                    } else if (dealer < playerTotal){
-                        partial += 1;
-                    } else if (dealer > playerTotal){
-                        partial -= 1;
-                    }
+                    partial[dealer > 21 ? BUST : dealer - 17]++;
                 }
                 return partial;
             }));
         }
-        long score = 0;
+        long[] counts = new long[6];
         try {
-            for (Future<Long> future : futures){
-                score += future.get();
+            for (Future<long[]> future : futures){
+                long[] partial = future.get();
+                for (int i = 0; i < 6; i++){
+                    counts[i] += partial[i];
+                }
             }
         } catch (InterruptedException | ExecutionException e){
             throw new RuntimeException(e);
         }
-        return (double) score / trials;
+        double[] dist = new double[6];
+        for (int i = 0; i < 6; i++){
+            dist[i] = (double) counts[i] / trials;
+        }
+        dealerCache.put(upValue, dist);
+        return dist;
      }
 
     public double doubleEV(int playerTotal, int playerAces, int upValue){
