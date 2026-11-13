@@ -73,6 +73,20 @@ public class MonteCarloAdvisor {
         if (upValue == 11) {
             aceCount++;
         }
+        // hole card: the game has already checked for dealer blackjack before the player acts,
+        // so if we are being asked for advice the dealer can't have one - redraw a hole card that would make 21
+        int hole = drawCard();
+        while (upValue + hole == 21){
+            hole = drawCard();
+        }
+        if (hole == 11){
+            aceCount++;
+        }
+        total += hole;
+        while (total > 21 && aceCount > 0){
+            total -= 10;
+            aceCount--;
+        }
         while (total < 17){
             int card = drawCard();
             if (card == 11){

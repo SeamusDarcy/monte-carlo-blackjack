@@ -2,6 +2,8 @@ package com.seamus.blackjack.model;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HandTest {
 
@@ -29,6 +31,18 @@ public class HandTest {
     @Test
     void aceAceIsTwelve() {
         assertEquals(12, handOf(Rank.ACE, Rank.ACE).getTotal());
+    }
+
+    // ace + ten card in two cards is a natural
+    @Test
+    void aceKingIsBlackjack() {
+        assertTrue(handOf(Rank.ACE, Rank.KING).isBlackjack());
+    }
+
+    // 21 made with three cards is not a blackjack
+    @Test
+    void threeCardTwentyOneIsNotBlackjack() {
+        assertFalse(handOf(Rank.SEVEN, Rank.SEVEN, Rank.SEVEN).isBlackjack());
     }
 
     // ace is turning value to 1 to avoid busting

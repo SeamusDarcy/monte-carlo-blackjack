@@ -26,6 +26,11 @@ public class Hand {
         return totalValue;
     }
 
+    // a natural: 21 with the first two cards
+    public boolean isBlackjack(){
+        return cards.size() == 2 && getTotal() == 21;
+    }
+
     public Card getCard(int i){
         return cards.get(i);
     }

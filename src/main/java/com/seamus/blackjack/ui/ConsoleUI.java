@@ -58,6 +58,14 @@ public class ConsoleUI {
 
     }
 
+    public void printBlackjack(){
+        System.out.println("Blackjack!");
+    }
+
+    public void printDealerBlackjack(){
+        System.out.println("Dealer has Blackjack");
+    }
+
     public void printWin(){
         System.out.println("You Win!");
     }

@@ -99,8 +99,32 @@ public class Game {
         } else return 2;
 
     }
+    // checks for naturals before anyone plays, returns true if the round is over
+    private boolean resolveBlackjacks(){
+        boolean playerBlackjack = playerHand.isBlackjack();
+        boolean dealerBlackjack = dealerHand.isBlackjack();
+        if (!playerBlackjack && !dealerBlackjack){
+            return false;
+        }
+        ui.showPlayerHand(playerHand);
+        ui.showDealerHand(dealerHand);
+        if (playerBlackjack && dealerBlackjack){
+            ui.printDraw();
+        } else if (playerBlackjack){
+            ui.printBlackjack();
+            System.out.println("You win 1.5");   // blackjack pays 3:2
+        } else {
+            ui.printDealerBlackjack();
+            System.out.println("You lose " + stake);
+        }
+        return true;
+    }
+
     public void play() {
         dealOpeningHands();
+        if (resolveBlackjacks()){
+            return;
+        }
         playerTurn();
         if (playerHand.getTotal() <= 21) {
             dealerTurn();
